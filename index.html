@@ -1,0 +1,95 @@
+
+<div id="food-scanner" style="background:#f4f7ef;padding:20px;border-radius:15px;color:#285c40;">
+  <h2>Find Better Food Alternatives</h2>
+  <p>Scan your product barcode to discover better food choices.</p>
+
+  <button onclick="startScanner()">Scan Barcode</button>
+  <div id="reader" style="width:100%;max-width:400px;"></div>
+
+  <p>Or enter your barcode manually:</p>
+  <input id="barcode" type="text" inputmode="numeric" placeholder="Enter barcode">
+  <button onclick="findProduct()">Search</button>
+
+  <h3 id="productName"></h3>
+  <p id="nutrition"></p>
+
+  <h3>Explore Alternatives</h3>
+  <select id="foodType" onchange="showAlternative()">
+    <option value="">Select a food type</option>
+    <option value="chicken">Chicken</option>
+    <option value="beef">Beef</option>
+    <option value="pork">Pork</option>
+    <option value="eggs">Eggs</option>
+  </select>
+
+  <p id="alternative"></p>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<script>
+let scanner;
+
+async function startScanner() {
+  try {
+    scanner = new Html5Qrcode("reader");
+    await scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: {width:250,height:140} },
+      async function(code) {
+        document.getElementById("barcode").value = code;
+        await scanner.stop();
+        findProduct();
+      },
+      function() {}
+    );
+  } catch(error) {
+    document.getElementById("productName").textContent =
+      "Camera unavailable. Enter the barcode manually.";
+  }
+}
+
+async function findProduct() {
+  let code = document.getElementById("barcode").value.trim();
+  document.getElementById("productName").textContent = "Searching...";
+  document.getElementById("nutrition").textContent = "";
+
+  try {
+    let response = await fetch(
+      "https://world.openfoodfacts.org/api/v2/product/" +
+      encodeURIComponent(code) + ".json"
+    );
+    let data = await response.json();
+
+    if (data.status === 1) {
+      document.getElementById("productName").textContent =
+        data.product.product_name || "Unnamed product";
+
+      let n = data.product.nutriments || {};
+      document.getElementById("nutrition").textContent =
+        "Calories per 100g: " +
+        (n["energy-kcal_100g"] ?? "Unavailable") +
+        " | Protein: " +
+        (n.proteins_100g ?? "Unavailable") + " g";
+    } else {
+      document.getElementById("productName").textContent =
+        "Product not found. Select a food type below.";
+    }
+  } catch(error) {
+    document.getElementById("productName").textContent =
+      "Unable to find product. Try again.";
+  }
+}
+
+function showAlternative() {
+  let alternatives = {
+    chicken: "Choose skinless chicken for a leaner option. Look for independent animal welfare certification.",
+    beef: "Try lean ground beef or lentils. Look for certified pasture-raised beef.",
+    pork: "Choose fresh, lean pork instead of processed bacon or sausage.",
+    eggs: "Look for independently certified pasture-raised eggs."
+  };
+
+  document.getElementById("alternative").textContent =
+    alternatives[document.getElementById("foodType").value] || "";
+}
+</script>
